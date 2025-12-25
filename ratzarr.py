@@ -36,6 +36,12 @@ class RatZarr:
             - Should it create if not exist? Perhaps need a flag to over-ride?
             - Should I support zipped Zarrays? Should I support them
               on S3 (read-only)? (Is that even possible?)
+
+        Parameters
+        ----------
+          filename : str
+            The Zarray file/store to use for the RAT
+
         """
         self.filename = filename
         if filename.lower().startswith('s3://'):
@@ -80,6 +86,12 @@ class RatZarr:
         If there are existing columns, they will be resized to the new
         rowCount. If this less than current, existing columns will be
         truncated.
+
+        Parameters
+        ----------
+          rowCount : int
+            The desired number of rows in the RAT
+
         """
         self.rowCount = rowCount
 
@@ -90,19 +102,37 @@ class RatZarr:
 
     def getRowCount(self):
         """
-        Return the current row count
+        Returns
+        -------
+          rowCount : int
+            The current number of rows in the RAT
+
         """
         return self.rowCount
 
     def colExists(self, colName):
         """
         Return True if the column already exists
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
         """
         return (colName in self.grp)
 
     def createColumn(self, colName, dtype):
         """
         Create a new column. Uses the currently active rowCount
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+          dtype : Any numpy dtype
+            The data type of the column to create
+
         """
         if self.colExists(colName):
             raise RatZarrError(f"Column '{colName}' already exists")
@@ -114,6 +144,12 @@ class RatZarr:
     def deleteColumn(self, colName):
         """
         Delete the named column
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
         """
         del self.grp[colName]
 
@@ -123,6 +159,12 @@ class RatZarr:
 
         This will happen automatically when reading or writing, and users
         should not usually need to call this method.
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
         """
         if not self.colExists(colName):
             msg = f"Column {colName} not found in Zarr file {self.filename}"
@@ -138,7 +180,22 @@ class RatZarr:
         Read a block from the given column. Return a numpy array of the
         block.
 
-        To read the entire column, use startRow=0 and blockLen=self.rowCount.
+        To read the entire column, use startRow=0 and blockLen=rowCount.
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+          startRow : int
+            Row of first element to read
+          blockLen : int
+            Number of rows to read
+
+        Returns
+        -------
+          block : ndarray
+            1-d numpy array of data for block
+
         """
         self.openColumn(colName)
         i1 = startRow
@@ -148,8 +205,18 @@ class RatZarr:
 
     def writeBlock(self, colName, block, startRow):
         """
-        Write the given block of data into the named column begining at
+        Write the given block of data into the named column, begining at
         startRow
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+          block : ndarray
+            1-d numpy array
+          startRow : int
+            Row of first element of block
+
         """
         self.openColumn(colName)
 
