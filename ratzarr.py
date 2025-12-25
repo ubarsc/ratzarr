@@ -124,7 +124,7 @@ class RatZarr:
         This will happen automatically when reading or writing, and users
         should not usually need to call this method.
         """
-        if colName not in self.grp:
+        if not self.colExists(colName):
             msg = f"Column {colName} not found in Zarr file {self.filename}"
             raise RatZarrError(msg)
 
