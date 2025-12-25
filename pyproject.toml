@@ -1,0 +1,26 @@
+# The installation requires pip>=23.0. If not, it will fail in rather
+# cryptic ways (depending exactly what options are used).
+#
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ratzarr"
+dynamic = ["version"]
+authors = [
+  {name = "Neil Flood"}
+]
+description = "Rough mimic of GDAL's RasterAttributeTable in a Zarray file"
+readme = "README.md"
+license = {text = "MIT License"}
+
+#[project.scripts]
+#ratzarr_tests = "ratzarr:mainCmd"
+
+[tool.setuptools.dynamic]
+version = {attr = "ratzarr.__version__"}
+
+[project.urls]
+Repository = "https://github.com/ubarsc/ratzarr.git"
