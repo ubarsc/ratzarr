@@ -21,14 +21,14 @@ class RatZarr:
     def __init__(self, filename, readOnly=False, create=True):
         """
         This class is a rough equivalent of the GDAL RasterAttributeTable
-        class, implementing a RAT-like structure with a Zarray group.
+        class, implementing a RAT-like structure with a Zarr group.
         It is not supposed to be a drop-in replacement, just something with
         somewhat similar functionality.
 
         Parameters
         ----------
           filename : str
-            The Zarray file/store to use for the RAT. Can be a local
+            The Zarr file/store to use for the RAT. Can be a local
             path string, or a URL for S3, e.g. 's3://bucketname/path'
           readOnly : bool
             If True, the RAT cannot be modified
@@ -62,7 +62,7 @@ class RatZarr:
             notExists = True
 
         if existsWithoutRAT:
-            msg = f"Zarray '{filename}' exists, but has no RAT group"
+            msg = f"Zarr '{filename}' exists, but has no RAT group"
             raise RatZarrError(msg)
         if notExists and readOnly:
             msg = f"readOnly is True, but file '{filename}' does not exist"
@@ -260,7 +260,7 @@ class RatZarr:
     def setChunkSize(self, chunksize):
         """
         Set the chunk size to use when creating columns. The default will
-        allow the Zarray package to choose a chunk size.
+        allow the Zarr package to choose a chunk size.
 
         When using large RATs on S3, it is recommended that explicit chunksize
         and shardfactor be set.
@@ -274,7 +274,7 @@ class RatZarr:
 
     def setShardFactor(self, shardfactor):
         """
-        Set the shardfactor. This is the number of chunks in each Zarray shard.
+        Set the shardfactor. This is the number of chunks in each Zarr shard.
         The default behaviour is no sharding at all.
 
         Explicit sharding is particularly recommended with large RATs on S3.
