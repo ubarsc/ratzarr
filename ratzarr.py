@@ -136,6 +136,15 @@ class RatZarr:
         """
         return (colName in self.grp)
 
+    def getColumnNames(self):
+        """
+        Returns
+        -------
+          colNameList : list of str
+            List of column names in RAT
+        """
+        return list(self.grp.keys())
+
     def createColumn(self, colName, dtype):
         """
         Create a new column. Uses the currently active rowCount
@@ -325,7 +334,8 @@ class AllTests(unittest.TestCase):
             col = rz.readBlock(colName, 0, n)
 
             self.assertEqual(dt, col.dtype, 'dtype mis-match')
-            numpy.testing.assert_array_equal(col, trueCol,
+            numpy.testing.assert_array_equal(
+                col, trueCol,
                 f'Column data mis-match (dtype={block.dtype})')
 
         shutil.rmtree(fn)
@@ -338,10 +348,10 @@ class AllTests(unittest.TestCase):
 
         # readOnly with non-existent file
         with self.assertRaises(RatZarrError):
-            rz = RatZarr(fn, readOnly=True)
+            _ = RatZarr(fn, readOnly=True)
         # create=False with non-existent file
         with self.assertRaises(RatZarrError):
-            rz = RatZarr(fn, create=False)
+            _ = RatZarr(fn, create=False)
 
         if os.path.exists(fn):
             shutil.rmtree(fn)
@@ -363,13 +373,41 @@ class AllTests(unittest.TestCase):
         # Resize to smaller
         rz.setRowCount(n // 2)
         col = rz.readBlock(colName, 0, n)
-        self.assertEqual(col.shape[0], (n // 2),
+        self.assertEqual(
+            col.shape[0], (n // 2),
             'Truncated rowCount mis-match')
 
         # Resize bigger
         rz.setRowCount(n)
         col = rz.readBlock(colName, 0, n)
         self.assertEqual(col.shape[0], n, 'Increased rowCount mis-match')
+
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
+
+    def test_colnames(self):
+        "Handling column names"
+        fn = 'test1.zarr'
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
+
+        rz = RatZarr(fn)
+        n = 100
+        rz.setRowCount(n)
+        c = numpy.arange(n).astype(numpy.int32)
+        col1 = 'col1'
+        col2 = 'col2'
+        rz.createColumn(col1, c.dtype)
+        rz.createColumn(col2, c.dtype)
+        self.assertTrue(rz.colExists(col1), f"Column '{col1}' does not exist")
+        colNameList = sorted(rz.getColumnNames())
+        self.assertListEqual(
+            colNameList, [col1, col2],
+            'Incorrect list of columns')
+
+        # Delete a column
+        rz.deleteColumn(col1)
+        self.assertFalse(rz.colExists(col1), f"Column '{col1}' was not deleted")
 
         if os.path.exists(fn):
             shutil.rmtree(fn)
