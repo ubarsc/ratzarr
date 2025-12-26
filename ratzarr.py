@@ -234,7 +234,7 @@ class RatZarr:
 
     def writeBlock(self, colName, block, startRow):
         """
-        Write the given block of data into the named column, begining at
+        Write the given block of data into the named column, beginning at
         startRow
 
         Parameters
