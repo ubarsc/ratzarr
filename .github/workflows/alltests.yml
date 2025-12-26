@@ -1,0 +1,36 @@
+name: Run tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  syntax-flake8:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Setup Python
+      uses: actions/setup-python@v1
+    - name: Lint with flake8
+      uses: py-actions/flake8@v2
+
+  unittests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        miniforge-version: latest
+    - name: Install dependencies
+      shell: bash -l {0}
+      run: conda install numpy zarr
+    - name: Test with unittest script
+      shell: bash -l {0}
+      run: |
+        pip install .
+        ratzarr_tests
