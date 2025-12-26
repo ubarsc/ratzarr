@@ -12,7 +12,7 @@ dynamic = ["version"]
 authors = [
   {name = "Neil Flood"}
 ]
-description = "Rough mimic of GDAL's RasterAttributeTable in a Zarray file"
+description = "Rough mimic of GDAL's RasterAttributeTable in a Zarr file"
 readme = "README.md"
 license = {text = "MIT License"}
 
