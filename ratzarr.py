@@ -207,6 +207,9 @@ class RatZarr:
         block.
 
         To read the entire column, use startRow=0 and blockLen=rowCount.
+        If startRow+blockLen is larger than the column length, only
+        the available rows are read, and the returned array has this smaller
+        size (perhaps this should raise an exception...).
 
         Parameters
         ----------
@@ -305,6 +308,7 @@ class AllTests(unittest.TestCase):
     Run all tests
     """
     def test_simple(self):
+        "Test reading/writing/creating a simple RAT"
         fn = 'test1.zarr'
         if os.path.exists(fn):
             shutil.rmtree(fn)
@@ -325,6 +329,50 @@ class AllTests(unittest.TestCase):
                 f'Column data mis-match (dtype={block.dtype})')
 
         shutil.rmtree(fn)
+
+    def test_flags(self):
+        "Test a bunch of exception conditions on constructor flags"
+        fn = 'test1.zarr'
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
+
+        # readOnly with non-existent file
+        with self.assertRaises(RatZarrError):
+            rz = RatZarr(fn, readOnly=True)
+        # create=False with non-existent file
+        with self.assertRaises(RatZarrError):
+            rz = RatZarr(fn, create=False)
+
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
+
+    def test_resize(self):
+        "Reset rowCount"
+        fn = 'test1.zarr'
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
+
+        rz = RatZarr(fn)
+        n = 100
+        rz.setRowCount(n)
+        c = numpy.arange(n).astype(numpy.int32)
+        colName = 'col1'
+        rz.createColumn(colName, c.dtype)
+        rz.writeBlock(colName, c, 0)
+
+        # Resize to smaller
+        rz.setRowCount(n // 2)
+        col = rz.readBlock(colName, 0, n)
+        self.assertEqual(col.shape[0], (n // 2),
+            'Truncated rowCount mis-match')
+
+        # Resize bigger
+        rz.setRowCount(n)
+        col = rz.readBlock(colName, 0, n)
+        self.assertEqual(col.shape[0], n, 'Increased rowCount mis-match')
+
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
 
 
 def mainCmd():
