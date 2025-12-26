@@ -77,6 +77,9 @@ class RatZarr:
         else:
             self.rowCount = 0
 
+        self.chunksize = None
+        self.shardfactor = None
+
     def setRowCount(self, rowCount):
         """
         Set the number of rows in the RAT.
@@ -138,7 +141,16 @@ class RatZarr:
             raise RatZarrError(f"Column '{colName}' already exists")
 
         shape = (self.rowCount,)
-        a = self.grp.create_array(name=colName, dtype=dtype, shape=shape)
+        if self.chunksize is not None:
+            chunkshape = (self.chunksize,)
+        else:
+            chunkshape = "auto"
+        if self.shardfactor is not None:
+            shards = ((self.shardfactor * self.chunksize), )
+        else:
+            shards = None
+        a = self.grp.create_array(name=colName, dtype=dtype, shape=shape,
+                                  chunks=chunkshape, shards=shards)
         self.columnCache[colName] = a
 
     def deleteColumn(self, colName):
@@ -230,6 +242,30 @@ class RatZarr:
         i1 = startRow
         i2 = startRow + blockLen
         self.columnCache[colName][i1:i2] = block
+
+    def setChunkSize(self, chunksize):
+        """
+        Set the chunk size to use when creating columns. The default will
+        allow the Zarray package to choose a chunk size.
+
+        When using large RATs on S3, it is recommended that explicit chunksize
+        and shardfactor be set.
+
+        Parameters
+        ----------
+          chunksize : int
+            Number of rows per chunk
+        """
+        self.chunksize = chunksize
+
+    def setShardFactor(self, shardfactor):
+        """
+        Set the shardfactor. This is the number of chunks in each Zarray shard.
+        The default behaviour is no sharding at all.
+
+        Explicit sharding is particularly recommended with large RATs on S3.
+        """
+        self.shardfactor = shardfactor
 
 
 class RatZarrError(Exception):
