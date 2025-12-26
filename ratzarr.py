@@ -407,7 +407,7 @@ class AllTests(unittest.TestCase):
 
         # Delete a column
         rz.deleteColumn(col1)
-        self.assertFalse(rz.colExists(col1), f"Column '{col1}' was not deleted")
+        self.assertFalse(rz.colExists(col1), f"Column '{col1}' not deleted")
 
         if os.path.exists(fn):
             shutil.rmtree(fn)
