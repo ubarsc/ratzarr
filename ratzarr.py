@@ -13,16 +13,23 @@ __version__ = "1.0.0"
 
 
 class RatZarr:
-    def __init__(self, filename):
+    def __init__(self, filename, readOnly=False, create=True):
         """
         This class is a rough equivalent of the GDAL RasterAttributeTable
         class, implementing a RAT-like structure with a Zarray group.
         It is not supposed to be a drop-in replacement, just something with
         somewhat similar functionality.
 
-        The filename is a string. If it begins with 's3://', the Zarray will be
-        on AWS S3, otherwise it represents a local directory. If it does not
-        exist, it will be created.
+        Parameters
+        ----------
+          filename : str
+            The Zarray file/store to use for the RAT. Can be a local
+            path string, or a URL for S3, e.g. 's3://bucketname/path'
+          readOnly : bool
+            If True, the RAT cannot be modified
+          create : bool
+            If True (the default), the RAT will be created if it does not
+            already exist
 
         The type of each column is a numpy dtype. We do not reproduce GDAL's
         GFT_Integer/Float/String field types, mainly because they seemed to
@@ -31,17 +38,6 @@ class RatZarr:
         This sort of RAT should not be used for storing things like the
         histogram or colour table. For this reason, we do not reproduce the
         concept of column usage, and all columns are effectively GFU_Generic.
-
-        QUESTIONS:
-            - Should it create if not exist? Perhaps need a flag to over-ride?
-            - Should I support zipped Zarrays? Should I support them
-              on S3 (read-only)? (Is that even possible?)
-
-        Parameters
-        ----------
-          filename : str
-            The Zarray file/store to use for the RAT
-
         """
         self.filename = filename
         if filename.lower().startswith('s3://'):
@@ -52,20 +48,30 @@ class RatZarr:
 
         # First a sanity check if the store already exists
         existsWithoutRAT = False
+        notExists = False
         try:
             zarr.open(store=self.store, path=self.grpName, mode='r')
         except zarr.errors.GroupNotFoundError:
             existsWithoutRAT = True
         except FileNotFoundError:
-            # Does not exist, so will be created
-            pass
+            notExists = True
 
         if existsWithoutRAT:
             msg = f"Zarray '{filename}' exists, but has no RAT group"
             raise RatZarrError(msg)
+        if notExists and readOnly:
+            msg = f"readOnly is True, but file '{filename}' does not exist"
+            raise RatZarrError(msg)
+        if notExists and not create:
+            msg = f"File '{filename}' does not exist, but create is False"
+            raise RatZarrError(msg)
+
+        mode = "a"
+        if readOnly:
+            mode = "r"
 
         self.grp = zarr.open_group(store=self.store, path=self.grpName,
-                                   mode="a")
+                                   mode=mode)
         self.columnCache = {}
 
         # If there are already columns present, find the rowCount
