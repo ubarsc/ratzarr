@@ -146,6 +146,9 @@ class RatZarr:
         else:
             chunkshape = "auto"
         if self.shardfactor is not None:
+            if self.chunksize is None:
+                msg = "Explicit shard factor requires explicit chunk size"
+                raise RatZarrError(msg)
             shards = ((self.shardfactor * self.chunksize), )
         else:
             shards = None
