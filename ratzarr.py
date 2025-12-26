@@ -202,7 +202,7 @@ class RatZarr:
           colName : str
             Name of column
           startRow : int
-            Row of first element to read
+            Row of first element to read (starts at 0)
           blockLen : int
             Number of rows to read
 
@@ -230,7 +230,7 @@ class RatZarr:
           block : ndarray
             1-d numpy array
           startRow : int
-            Row of first element of block
+            Row of first element of block (starts at 0)
 
         """
         self.openColumn(colName)
