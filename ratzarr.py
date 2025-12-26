@@ -6,6 +6,11 @@ and also with pyshepseg's per-segment stats calculation. Not sure
 how widely it might be useful beyond that.
 
 """
+import os
+import shutil
+import unittest
+
+import numpy
 import zarr
 
 
@@ -243,7 +248,7 @@ class RatZarr:
 
         blockLen = block.shape[0]
 
-        if (startRow + blockLen) < self.rowCount:
+        if (startRow + blockLen) > self.rowCount:
             msg = f"Current rowCount {self.rowCount} too small for block of "
             msg += f"length {blockLen} at startRow {startRow}"
             raise RatZarrError(msg)
@@ -281,3 +286,50 @@ class RatZarrError(Exception):
     """
     Generic exception for RatZarr
     """
+
+
+# Code for unit tests
+#
+#
+
+
+colNameByType = {
+    numpy.int32: 'int32col',
+    numpy.float32: 'float32col',
+    numpy.dtypes.StringDType(): 'stringcol'
+}
+
+
+class AllTests(unittest.TestCase):
+    """
+    Run all tests
+    """
+    def test_simple(self):
+        fn = 'test1.zarr'
+        if os.path.exists(fn):
+            shutil.rmtree(fn)
+        rz = RatZarr(fn)
+        n = 100
+        rz.setRowCount(n)
+        for (dt, colName) in colNameByType.items():
+            rz.createColumn(colName, dt)
+            block = numpy.arange(n // 2).astype(dt)
+            rz.writeBlock(colName, block, 0)
+            rz.writeBlock(colName, block, n // 2)
+
+            trueCol = numpy.concatenate([block, block])
+            col = rz.readBlock(colName, 0, n)
+
+            self.assertEqual(dt, col.dtype, 'dtype mis-match')
+            numpy.testing.assert_array_equal(col, trueCol,
+                f'Column data mis-match (dtype={block.dtype})')
+
+        shutil.rmtree(fn)
+
+
+def mainCmd():
+    unittest.main(module='ratzarr')
+
+
+if __name__ == "__main__":
+    mainCmd()

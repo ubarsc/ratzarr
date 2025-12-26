@@ -16,8 +16,11 @@ description = "Rough mimic of GDAL's RasterAttributeTable in a Zarray file"
 readme = "README.md"
 license = {text = "MIT License"}
 
-#[project.scripts]
-#ratzarr_tests = "ratzarr:mainCmd"
+[project.scripts]
+ratzarr_tests = "ratzarr:mainCmd"
+
+[tool.setuptools]
+py-modules = ["ratzarr"]
 
 [tool.setuptools.dynamic]
 version = {attr = "ratzarr.__version__"}
