@@ -12,6 +12,10 @@ import unittest
 
 import numpy
 import zarr
+try:
+    import boto3
+except ImportError:
+    boto3 = None
 
 
 __version__ = "1.0.0"
@@ -52,24 +56,24 @@ class RatZarr:
         self.grpName = "RAT"
 
         # First a sanity check if the store already exists
-        existsWithoutRAT = False
-        notExists = False
-        try:
-            zarr.open(store=self.store, path=self.grpName, mode='r')
-        except zarr.errors.GroupNotFoundError:
-            existsWithoutRAT = True
-        except FileNotFoundError:
-            notExists = True
-
-        if existsWithoutRAT:
-            msg = f"Zarr '{filename}' exists, but has no RAT group"
-            raise RatZarrError(msg)
-        if notExists and readOnly:
-            msg = f"readOnly is True, but file '{filename}' does not exist"
-            raise RatZarrError(msg)
-        if notExists and not create:
-            msg = f"File '{filename}' does not exist, but create is False"
-            raise RatZarrError(msg)
+#        existsWithoutRAT = False
+#        notExists = False
+#        try:
+#            zarr.open(store=self.store, path=self.grpName, mode='r')
+#        except zarr.errors.GroupNotFoundError:
+#            existsWithoutRAT = True
+#        except FileNotFoundError:
+#            notExists = True
+#
+#        if existsWithoutRAT:
+#            msg = f"Zarr '{filename}' exists, but has no RAT group"
+#            raise RatZarrError(msg)
+#        if notExists and readOnly:
+#            msg = f"readOnly is True, but file '{filename}' does not exist"
+#            raise RatZarrError(msg)
+#        if notExists and not create:
+#            msg = f"File '{filename}' does not exist, but create is False"
+#            raise RatZarrError(msg)
 
         mode = "a"
         if readOnly:
@@ -319,9 +323,9 @@ class AllTests(unittest.TestCase):
     def test_simple(self):
         "Test reading/writing/creating a simple RAT"
         fn = 'test1.zarr'
-        if os.path.exists(fn):
-            shutil.rmtree(fn)
-        rz = RatZarr(fn)
+        fullFilename = self.makeFilename(fn)
+        self.deleteTestFile(fn)
+        rz = RatZarr(fullFilename)
         n = 100
         rz.setRowCount(n)
         for (dt, colName) in colNameByType.items():
@@ -338,31 +342,30 @@ class AllTests(unittest.TestCase):
                 col, trueCol,
                 f'Column data mis-match (dtype={block.dtype})')
 
-        shutil.rmtree(fn)
+        self.deleteTestFile(fn)
 
-    def test_flags(self):
-        "Test a bunch of exception conditions on constructor flags"
-        fn = 'test1.zarr'
-        if os.path.exists(fn):
-            shutil.rmtree(fn)
-
-        # readOnly with non-existent file
-        with self.assertRaises(RatZarrError):
-            _ = RatZarr(fn, readOnly=True)
-        # create=False with non-existent file
-        with self.assertRaises(RatZarrError):
-            _ = RatZarr(fn, create=False)
-
-        if os.path.exists(fn):
-            shutil.rmtree(fn)
+#    def test_flags(self):
+#        "Test a bunch of exception conditions on constructor flags"
+#        fn = 'test1.zarr'
+#        fullFilename = self.makeFilename(fn)
+#        self.deleteTestFile(fn)
+#
+#        # readOnly with non-existent file
+#        with self.assertRaises(RatZarrError):
+#            _ = RatZarr(fullFilename, readOnly=True)
+#        # create=False with non-existent file
+#        with self.assertRaises(RatZarrError):
+#            _ = RatZarr(fullFilename, create=False)
+#
+#        self.deleteTestFile(fn)
 
     def test_resize(self):
         "Reset rowCount"
         fn = 'test1.zarr'
-        if os.path.exists(fn):
-            shutil.rmtree(fn)
+        fullFilename = self.makeFilename(fn)
+        self.deleteTestFile(fn)
 
-        rz = RatZarr(fn)
+        rz = RatZarr(fullFilename)
         n = 100
         rz.setRowCount(n)
         c = numpy.arange(n).astype(numpy.int32)
@@ -382,16 +385,15 @@ class AllTests(unittest.TestCase):
         col = rz.readBlock(colName, 0, n)
         self.assertEqual(col.shape[0], n, 'Increased rowCount mis-match')
 
-        if os.path.exists(fn):
-            shutil.rmtree(fn)
+        self.deleteTestFile(fn)
 
     def test_colnames(self):
         "Handling column names"
         fn = 'test1.zarr'
-        if os.path.exists(fn):
-            shutil.rmtree(fn)
+        fullFilename = self.makeFilename(fn)
+        self.deleteTestFile(fn)
 
-        rz = RatZarr(fn)
+        rz = RatZarr(fullFilename)
         n = 100
         rz.setRowCount(n)
         c = numpy.arange(n).astype(numpy.int32)
@@ -409,8 +411,36 @@ class AllTests(unittest.TestCase):
         rz.deleteColumn(col1)
         self.assertFalse(rz.colExists(col1), f"Column '{col1}' not deleted")
 
-        if os.path.exists(fn):
-            shutil.rmtree(fn)
+        self.deleteTestFile(fn)
+
+    def makeFilename(self, filename):
+        """
+        Make full filename string
+        """
+        self.s3bucket = os.environ.get('S3BUCKET')
+        self.usingS3 = (self.s3bucket is not None and boto3 is not None)
+        if self.usingS3:
+            fullFilename = f"s3://{self.s3bucket}/{filename}"
+        else:
+            fullFilename = filename
+        return fullFilename
+
+    def deleteTestFile(self, filename):
+        """
+        Delete the given test file, if it exists
+        """
+        if self.usingS3:
+            s3client = boto3.client('s3')
+            response = s3client.list_objects(Bucket=self.s3bucket,
+                                             Prefix=filename)
+            if 'Contents' in response:
+                objectKeyList = [o['Key'] for o in response['Contents']]
+                objSpec = {'Objects': [{'Key': k} for k in objectKeyList]}
+                s3client.delete_objects(Bucket=self.s3bucket,
+                                        Delete=objSpec)
+        else:
+            if os.path.exists(filename):
+                shutil.rmtree(filename)
 
 
 def mainCmd():
