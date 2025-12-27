@@ -48,32 +48,43 @@ class RatZarr:
         histogram or colour table. For this reason, we do not reproduce the
         concept of column usage, and all columns are effectively GFU_Generic.
         """
+        self.usingS3 = False
         self.filename = filename
         if filename.lower().startswith('s3://'):
             self.store = zarr.storage.FsspecStore.from_url(filename)
+            self.usingS3 = True
         else:
             self.store = filename
         self.grpName = "RAT"
 
-        # First a sanity check if the store already exists
-#        existsWithoutRAT = False
-#        notExists = False
-#        try:
-#            zarr.open(store=self.store, path=self.grpName, mode='r')
-#        except zarr.errors.GroupNotFoundError:
-#            existsWithoutRAT = True
-#        except FileNotFoundError:
-#            notExists = True
-#
-#        if existsWithoutRAT:
-#            msg = f"Zarr '{filename}' exists, but has no RAT group"
-#            raise RatZarrError(msg)
-#        if notExists and readOnly:
-#            msg = f"readOnly is True, but file '{filename}' does not exist"
-#            raise RatZarrError(msg)
-#        if notExists and not create:
-#            msg = f"File '{filename}' does not exist, but create is False"
-#            raise RatZarrError(msg)
+        # First a sanity check if the store already exists.
+        existsWithoutRAT = False
+        notExists = False
+        #  Note that we have to test for slightly different exceptions
+        # between local and S3, because zarr has inconsistent behaviour.
+        notExistExc = FileNotFoundError
+        if self.usingS3:
+            notExistExc = zarr.errors.GroupNotFoundError
+
+        try:
+            zarr.open(store=self.store, mode='r')
+        except notExistExc:
+            notExists = True
+        if not notExists:
+            try:
+                zarr.open(store=self.store, path=self.grpName, mode='r')
+            except zarr.errors.GroupNotFoundError:
+                existsWithoutRAT = True
+
+        if existsWithoutRAT:
+            msg = f"Zarr '{filename}' exists, but has no RAT group"
+            raise RatZarrError(msg)
+        if notExists and readOnly:
+            msg = f"readOnly is True, but file '{filename}' does not exist"
+            raise RatZarrError(msg)
+        if notExists and not create:
+            msg = f"File '{filename}' does not exist, but create is False"
+            raise RatZarrError(msg)
 
         mode = "a"
         if readOnly:
@@ -344,20 +355,20 @@ class AllTests(unittest.TestCase):
 
         self.deleteTestFile(fn)
 
-#    def test_flags(self):
-#        "Test a bunch of exception conditions on constructor flags"
-#        fn = 'test1.zarr'
-#        fullFilename = self.makeFilename(fn)
-#        self.deleteTestFile(fn)
-#
-#        # readOnly with non-existent file
-#        with self.assertRaises(RatZarrError):
-#            _ = RatZarr(fullFilename, readOnly=True)
-#        # create=False with non-existent file
-#        with self.assertRaises(RatZarrError):
-#            _ = RatZarr(fullFilename, create=False)
-#
-#        self.deleteTestFile(fn)
+    def test_flags(self):
+        "Test a bunch of exception conditions on constructor flags"
+        fn = 'test1.zarr'
+        fullFilename = self.makeFilename(fn)
+        self.deleteTestFile(fn)
+
+        # readOnly with non-existent file
+        with self.assertRaises(RatZarrError):
+            _ = RatZarr(fullFilename, readOnly=True)
+        # create=False with non-existent file
+        with self.assertRaises(RatZarrError):
+            _ = RatZarr(fullFilename, create=False)
+
+        self.deleteTestFile(fn)
 
     def test_resize(self):
         "Reset rowCount"
