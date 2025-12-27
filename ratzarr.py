@@ -429,6 +429,8 @@ class AllTests(unittest.TestCase):
         Make full filename string
         """
         self.s3bucket = os.environ.get('S3BUCKET')
+        if self.s3bucket is not None and boto3 is None:
+            raise ValueError("S3BUCKET given, boto3 unavailable")
         self.usingS3 = (self.s3bucket is not None and boto3 is not None)
         if self.usingS3:
             fullFilename = f"s3://{self.s3bucket}/{filename}"
