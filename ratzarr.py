@@ -6,6 +6,7 @@ and also with pyshepseg's per-segment stats calculation. Not sure
 how widely it might be useful beyond that.
 
 """
+import sys
 import os
 import shutil
 import unittest
@@ -19,6 +20,8 @@ except ImportError:
 
 
 __version__ = "1.0.0"
+CHUNKSIZE_ATTR = 'CHUNKSIZE'
+DFLT_CHUNKSIZE = 500000
 
 
 class RatZarr:
@@ -103,8 +106,13 @@ class RatZarr:
         else:
             self.rowCount = 0
 
-        self.chunksize = None
-        self.shardfactor = None
+        self.chunksize = self.grp.attrs.get(CHUNKSIZE_ATTR, DFLT_CHUNKSIZE)
+        if CHUNKSIZE_ATTR not in self.grp.attrs:
+            self.grp.attrs[CHUNKSIZE_ATTR] = self.chunksize
+
+        # Flags to prevent repetitious warning messages
+        self.blockChunkMultipleWarningDone = False
+        self.smallBlockWarningDone = False
 
     def setRowCount(self, rowCount):
         """
@@ -176,19 +184,9 @@ class RatZarr:
             raise RatZarrError(f"Column '{colName}' already exists")
 
         shape = (self.rowCount,)
-        if self.chunksize is not None:
-            chunkshape = (self.chunksize,)
-        else:
-            chunkshape = "auto"
-        if self.shardfactor is not None:
-            if self.chunksize is None:
-                msg = "Explicit shard factor requires explicit chunk size"
-                raise RatZarrError(msg)
-            shards = ((self.shardfactor * self.chunksize), )
-        else:
-            shards = None
+        chunkshape = (self.chunksize,)
         a = self.grp.create_array(name=colName, dtype=dtype, shape=shape,
-                                  chunks=chunkshape, shards=shards)
+                                  chunks=chunkshape)
         self.columnCache[colName] = a
 
     def deleteColumn(self, colName):
@@ -231,9 +229,13 @@ class RatZarr:
         block.
 
         To read the entire column, use startRow=0 and blockLen=rowCount.
+
+        For best efficiency, use a block length which is a multiple of the
+        chunk size (see getRATChunkSize, getColumnChunkSize).
+
         If startRow+blockLen is larger than the column length, only
         the available rows are read, and the returned array has this smaller
-        size (perhaps this should raise an exception...).
+        size.
 
         Parameters
         ----------
@@ -259,7 +261,9 @@ class RatZarr:
     def writeBlock(self, colName, block, startRow):
         """
         Write the given block of data into the named column, beginning at
-        startRow
+        startRow. For best performance, use a block length which is a
+        multiple of the chunk size (see setChunkSize, getRATChunkSize,
+        getColumnChunkSize).
 
         Parameters
         ----------
@@ -274,6 +278,20 @@ class RatZarr:
         self.openColumn(colName)
 
         blockLen = block.shape[0]
+        # Check for chunk size warning conditions
+        chunksize = self.columnCache[colName].chunks[0]
+        if blockLen > chunksize and (blockLen % chunksize) != 0:
+            msg = ("Warning: Block len {} not a multiple of " +
+                   "chunk size {}").format(blockLen, chunksize)
+            if not self.blockChunkMultipleWarningDone:
+                print(msg, file=sys.stderr)
+                self.blockChunkMultipleWarningDone = True
+        if blockLen < chunksize and (startRow + blockLen) < self.rowCount:
+            msg = ("Warning: Block len {} smaller than chunk " +
+                   "size {}").format(blockLen, chunksize)
+            if not self.smallBlockWarningDone:
+                print(msg, file=sys.stderr)
+                self.smallBlockWarningDone = True
 
         if (startRow + blockLen) > self.rowCount:
             msg = f"Current rowCount {self.rowCount} too small for block of "
@@ -286,11 +304,17 @@ class RatZarr:
 
     def setChunkSize(self, chunksize):
         """
-        Set the chunk size to use when creating columns. The default will
-        allow the Zarr package to choose a chunk size.
+        Set the Zarr chunk size for for all columns created after this call.
+        This defaults to a sensible value, and should only be changed if
+        you know what you are doing.
 
-        When using large RATs on S3, it is recommended that explicit chunksize
-        and shardfactor be set.
+        It is preserved in the disk file, and will apply when next it is
+        opened. Usually best to set this once, so that all columns have
+        the same chunk size.
+
+        When reading and/or writing block-by-block, it is strongly recommended
+        that the block length be a multiple of the chunk size, to avoid
+        significant performance degradation.
 
         Parameters
         ----------
@@ -298,15 +322,35 @@ class RatZarr:
             Number of rows per chunk
         """
         self.chunksize = chunksize
+        if self.grp is not None:
+            self.grp.attrs[CHUNKSIZE_ATTR] = chunksize
 
-    def setShardFactor(self, shardfactor):
+    def getRATChunkSize(self):
         """
-        Set the shardfactor. This is the number of chunks in each Zarr shard.
-        The default behaviour is no sharding at all.
+        Return the chunk size for the RAT.
+        """
+        return self.grp.attrs.get(CHUNKSIZE_ATTR, DFLT_CHUNKSIZE)
 
-        Explicit sharding is particularly recommended with large RATs on S3.
+    def getColumnChunkSize(self, colName):
         """
-        self.shardfactor = shardfactor
+        Get the chunk size for the given column. Normally this is the same as
+        the chunk size for the whole RAT, but if you suspect it is different,
+        use this to check.
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
+        Returns
+        -------
+          chunkSize : int
+            The chunk size for the given column (usually set when it was
+            created)
+        """
+        self.openColumn(colName)
+        chunks = self.columnCache[colName].chunks
+        return chunks[0]
 
 
 class RatZarrError(Exception):
@@ -339,6 +383,7 @@ class AllTests(unittest.TestCase):
         rz = RatZarr(fullFilename)
         n = 100
         rz.setRowCount(n)
+        rz.setChunkSize(n // 2)
         for (dt, colName) in colNameByType.items():
             rz.createColumn(colName, dt)
             block = numpy.arange(n // 2).astype(dt)
@@ -350,8 +395,7 @@ class AllTests(unittest.TestCase):
 
             self.assertEqual(dt, col.dtype, 'dtype mis-match')
             numpy.testing.assert_array_equal(
-                col, trueCol,
-                f'Column data mis-match (dtype={block.dtype})')
+                col, trueCol, f'Column data mis-match (dtype={block.dtype})')
 
         self.deleteTestFile(fn)
 
@@ -424,6 +468,31 @@ class AllTests(unittest.TestCase):
 
         self.deleteTestFile(fn)
 
+    def test_chunksize(self):
+        "Chunk size manipulation"
+        fn = 'test1.zarr'
+        fullFilename = self.makeFilename(fn)
+        self.deleteTestFile(fn)
+
+        rz = RatZarr(fullFilename)
+        rz.setRowCount(1000000)
+        ratChunk = rz.getRATChunkSize()
+        self.assertEqual(ratChunk, DFLT_CHUNKSIZE,
+                         f'Unexpected chunk size {ratChunk}')
+        newChunk = 100000
+        rz.setChunkSize(newChunk)
+        ratChunk = rz.getRATChunkSize()
+        self.assertEqual(ratChunk, newChunk,
+                         f'Chunk size not changed: {ratChunk}')
+
+        colName = 'col1'
+        rz.createColumn(colName, numpy.int32)
+        colChunk = rz.getColumnChunkSize(colName)
+        self.assertEqual(colChunk, newChunk,
+                         f'Unexpected column chunk {colChunk}')
+
+        self.deleteTestFile(fn)
+
     def makeFilename(self, filename):
         """
         Make full filename string
@@ -451,6 +520,12 @@ class AllTests(unittest.TestCase):
                 objSpec = {'Objects': [{'Key': k} for k in objectKeyList]}
                 s3client.delete_objects(Bucket=self.s3bucket,
                                         Delete=objSpec)
+
+            # Wait until it is actually gone
+            while 'Contents' in response:
+                print('Waiting S3 delete')
+                response = s3client.list_objects(Bucket=self.s3bucket,
+                                                 Prefix=filename)
         else:
             if os.path.exists(filename):
                 shutil.rmtree(filename)
