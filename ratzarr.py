@@ -491,6 +491,11 @@ class AllTests(unittest.TestCase):
         self.assertEqual(colChunk, newChunk,
                          f'Unexpected column chunk {colChunk}')
 
+        rz2 = RatZarr(fullFilename)
+        ratChunk = rz2.getRATChunkSize()
+        self.assertEqual(ratChunk, newChunk,
+                         f'Chunk size not preserved on disk')
+
         self.deleteTestFile(fn)
 
     def makeFilename(self, filename):
