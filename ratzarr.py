@@ -494,7 +494,7 @@ class AllTests(unittest.TestCase):
         rz2 = RatZarr(fullFilename)
         ratChunk = rz2.getRATChunkSize()
         self.assertEqual(ratChunk, newChunk,
-                         f'Chunk size not preserved on disk')
+                         'Chunk size not preserved on disk')
 
         self.deleteTestFile(fn)
 
