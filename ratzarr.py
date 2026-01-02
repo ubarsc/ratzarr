@@ -523,7 +523,6 @@ class AllTests(unittest.TestCase):
 
             # Wait until it is actually gone
             while 'Contents' in response:
-                print('Waiting S3 delete')
                 response = s3client.list_objects(Bucket=self.s3bucket,
                                                  Prefix=filename)
         else:
