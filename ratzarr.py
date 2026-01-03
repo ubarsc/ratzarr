@@ -1,9 +1,55 @@
 """
 Routines for handling RAT-like columns stored in a Zarr array group.
 
-All rather experimental as yet. Intended to be used with rios.ratapplier,
-and also with pyshepseg's per-segment stats calculation. Not sure
-how widely it might be useful beyond that.
+The raster data model in GDAL includes a Raster Attribute Table (RAT).
+Several formats support this, storing the data inside the same raster file.
+However, sometimes it is not possible to write back into the file, such as
+when the file is stored on AWS S3 storage.
+
+This ratzarr module provides an alternative way to store RAT-like columns
+alongside the raster file itself, in a way that allows extra columns to
+be written incrementally (i.e. block-by-block), allowing for very large
+tables to be built up, both in terms of large row count and large number of
+columns. More columns can be added later, as required, and columns can be
+deleted individually. Columns can also be resized to a new row count.
+
+The RAT is stored as a set of 1-d arrays in a single Zarr array group
+(https://zarr.dev/, https://github.com/zarr-developers/zarr-python). Currently,
+ratzarr only makes use of the local disk and AWS S3 storage options. It does
+not support zipfile storage, as this does not allow for writeable arrays on S3.
+
+Simple usage::
+
+    import ratzarr
+    ratfile = 's3://mybucket/somepath/myrat.zarr'
+    rz = ratzarr.RatZarr(ratfile)
+    nRows = 1000000
+    rz.setRowCount(nRows)
+
+    # A very boring column
+    col = numpy.arange(nRows) + 10
+
+    rz.createColumn('BoringCol', col.dtype)
+    rz.writeBlock('BoringCol', col, 0)
+
+    # Read it all back
+    col2 = rz.readBlock('BoringCol', 0, nRows)
+
+For the RAT to be on local disk, the ``ratfile`` should just be an ordinary
+path string.
+
+For very large RATs, with large numbers of rows and possibly many columns,
+it is often more memory-efficient to work with fixed-size blocks of data.
+In this case, it is important to pay attention to the Zarr chunk size. The
+default value is 500000, and it can be set before any columns are created
+(see RatZarr.setChunkSize). Most importantly, the size of blocks being read
+and/or written should be divisible by the chunk size. The simplest way is
+often just to choose the block size as a multiple of the default Zarr chunk
+size, but other considerations may require directly setting the Zarr chunk
+size.
+
+It is intended that all columns have the same length (i.e. number of rows), but
+currently it is up to the user to enforce this.
 
 """
 import sys
@@ -118,7 +164,9 @@ class RatZarr:
         """
         Set the number of rows in the RAT.
 
-        Usually do this before creating any columns.
+        Usually do this before creating any columns. The row count persists
+        between runs, so this only needs to be set when the RAT is first
+        created, or if it needs to be changed.
 
         If there are existing columns, they will be resized to the new
         rowCount. If this less than current, existing columns will be
@@ -304,13 +352,14 @@ class RatZarr:
 
     def setChunkSize(self, chunksize):
         """
-        Set the Zarr chunk size for for all columns created after this call.
+        Set the Zarr chunk size for all columns created after this call.
         This defaults to a sensible value, and should only be changed if
-        you know what you are doing.
+        you know what you are doing. Chunk sizes either too large or too
+        small can have performance implications, so proceed with caution.
 
-        It is preserved in the disk file, and will apply when next it is
-        opened. Usually best to set this once, so that all columns have
-        the same chunk size.
+        The chunk size is preserved in the disk file, and will apply when
+        next it is opened. Usually best to set this once, so that all
+        columns have the same chunk size.
 
         When reading and/or writing block-by-block, it is strongly recommended
         that the block length be a multiple of the chunk size, to avoid
