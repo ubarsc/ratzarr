@@ -1,0 +1,8 @@
+Note To Developers
+
+Use the following command to regenerate the documentation
+after changes to ratzarr.py.
+
+    pdoc --docformat numpy --no-search -o docs/ ratzarr
+
+Remember to check for changes to files in docs/, and commit and merge them.
