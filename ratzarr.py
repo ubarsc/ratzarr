@@ -21,7 +21,7 @@ not support zipfile storage, as this does not allow for writeable arrays on S3.
 Simple usage:
 
     import ratzarr
-    
+
     ratfile = 's3://mybucket/somepath/myrat.zarr'
     nRows = 1000000
     rz = ratzarr.RatZarr(ratfile)
