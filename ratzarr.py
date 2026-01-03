@@ -18,12 +18,13 @@ The RAT is stored as a set of 1-d arrays in a single Zarr array group
 ratzarr only makes use of the local disk and AWS S3 storage options. It does
 not support zipfile storage, as this does not allow for writeable arrays on S3.
 
-Simple usage::
+Simple usage:
 
     import ratzarr
+
     ratfile = 's3://mybucket/somepath/myrat.zarr'
-    rz = ratzarr.RatZarr(ratfile)
     nRows = 1000000
+    rz = ratzarr.RatZarr(ratfile)
     rz.setRowCount(nRows)
 
     # A very boring column
