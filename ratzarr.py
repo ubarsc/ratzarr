@@ -92,7 +92,9 @@ class RatZarr:
 
         The type of each column is a numpy dtype. We do not reproduce GDAL's
         GFT_Integer/Float/String field types, mainly because they seemed to
-        serve no particular purpose in this context.
+        serve no particular purpose in this context. All the usual numpy
+        integer and float dtypes are supported, but Zarr only handles string
+        arrays if they have dtype `numpy.dtypes.StringDType()`.
 
         This sort of RAT should not be used for storing things like the
         histogram or colour table. For this reason, we do not reproduce the
