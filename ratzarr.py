@@ -418,9 +418,10 @@ class RatZarrError(Exception):
 
 colNameByType = {
     numpy.int32: 'int32col',
-    numpy.float32: 'float32col',
-    numpy.dtypes.StringDType(): 'stringcol'
+    numpy.float32: 'float32col'
 }
+if hasattr(numpy.dtypes, "StringDType"):
+    colNameByType[numpy.dtypes.StringDType()] = 'stringcol'
 
 
 class AllTests(unittest.TestCase):
