@@ -434,14 +434,9 @@ class RatZarr:
             key = components.path
             if key.startswith('/'):
                 key = key[1:]
-            fileExists = True
-            try:
-                s3client.head_object(Bucket=bucket, Key=key)
-            except botocore.exceptions.ClientError as e:
-                if e.response['Error']['Code'] == '404':
-                    fileExists = False
-                else:
-                    raise e
+            response = s3client.list_objects(Bucket=bucket, Prefix=key)
+            contents = response.get('Contents')
+            fileExists = (contents is not None)
         elif components.scheme == '':
             path = components.path
             fileExists = os.path.exists(path)
