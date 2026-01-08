@@ -57,11 +57,13 @@ import sys
 import os
 import shutil
 import unittest
+from urllib.parse import urlparse
 
 import numpy
 import zarr
 try:
     import boto3
+    import botocore.exceptions
 except ImportError:
     boto3 = None
 
@@ -102,9 +104,10 @@ class RatZarr:
         """
         self.usingS3 = False
         self.filename = filename
-        if filename.lower().startswith('s3://'):
+        components = urlparse(filename)
+        self.usingS3 = (components.scheme == 's3')
+        if self.usingS3:
             self.store = zarr.storage.FsspecStore.from_url(filename)
-            self.usingS3 = True
         else:
             self.store = filename
         self.grpName = "RAT"
@@ -403,6 +406,115 @@ class RatZarr:
         self.openColumn(colName)
         chunks = self.columnCache[colName].chunks
         return chunks[0]
+
+    @staticmethod
+    def exists(zarrfile):
+        """
+        Check if the given filename exists. Does not confirm if it is a
+        valid Zarr or RatZarr file.
+
+        Parameters
+        ----------
+          zarrfile : str
+            Full name of a possible zarr file (including 's3://' if required)
+
+        Returns
+        -------
+          exists : bool
+            True if the named file exists
+        """
+        components = urlparse(zarrfile)
+        isS3 = (components.scheme == 's3')
+        if isS3:
+            if boto3 is None:
+                raise RatZarrError('Using S3, but boto3 unavailable')
+
+            s3client = boto3.client('s3')
+            bucket = components.netloc
+            key = components.path
+            if key.startswith('/'):
+                key = key[1:]
+            fileExists = True
+            try:
+                s3client.head_object(Bucket=bucket, Key=key)
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == '404':
+                    fileExists = False
+                else:
+                    raise e
+        elif components.scheme == '':
+            path = components.path
+            fileExists = os.path.exists(path)
+        else:
+            raise RatZarrError(f"Unknown zarrfile spec '{zarrfile}'")
+        return fileExists
+
+    @staticmethod
+    def isValidRatZarr(zarrfile):
+        """
+        Check if the given filename is a valid RatZarr file
+
+        Parameters
+        ----------
+          zarrfile : str
+            Full name of a possible zarr file (including 's3://' if required)
+
+        Returns
+        -------
+          isValid : bool
+            True if the named file exists and is valid RatZarr
+        """
+        valid = RatZarr.exists(zarrfile)
+        if valid:
+            isZarr = RatZarr.exists(os.path.join(zarrfile, 'zarr.json'))
+            isRatZarr = RatZarr.exists(os.path.join(zarrfile, 'RAT'))
+            valid = (isZarr and isRatZarr)
+        return valid
+
+    @staticmethod
+    def delete(zarrfile):
+        """
+        Delete the named RatZarr file.
+
+        Silently returns if file does not exists. Raises exception if
+        the file is not a valid RatZarr file.
+
+        Parameters
+        ----------
+          zarrfile : str
+            Full name of a possible zarr file (including 's3://' if required)
+        """
+        if not RatZarr.exists(zarrfile):
+            return
+        if not RatZarr.isValidRatZarr(zarrfile):
+            raise RatZarrError(f"{zarrfile} is not valid RatZarr")
+
+        components = urlparse(zarrfile)
+        isS3 = (components.scheme == 's3')
+        if isS3:
+            if boto3 is None:
+                raise RatZarrError('Using S3, but boto3 unavailable')
+
+            s3client = boto3.client('s3')
+            bucket = components.netloc
+            key = components.path
+            if key.startswith('/'):
+                key = key[1:]
+
+            response = s3client.list_objects(Bucket=bucket,
+                                             Prefix=key)
+            if 'Contents' in response:
+                objectKeyList = [o['Key'] for o in response['Contents']]
+                objSpec = {'Objects': [{'Key': k} for k in objectKeyList]}
+                s3client.delete_objects(Bucket=bucket,
+                                        Delete=objSpec)
+
+            # Wait until it is actually gone
+            while 'Contents' in response:
+                response = s3client.list_objects(Bucket=bucket,
+                                                 Prefix=key)
+        elif components.scheme == '':
+            shutil.rmtree(zarrfile)
 
 
 class RatZarrError(Exception):
