@@ -523,7 +523,7 @@ class AllTests(unittest.TestCase):
         "Test reading/writing/creating a simple RAT"
         fn = 'test1.zarr'
         fullFilename = self.makeFilename(fn)
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
         rz = RatZarr(fullFilename)
         n = 100
         rz.setRowCount(n)
@@ -541,13 +541,13 @@ class AllTests(unittest.TestCase):
             numpy.testing.assert_array_equal(
                 col, trueCol, f'Column data mis-match (dtype={block.dtype})')
 
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
     def test_flags(self):
         "Test a bunch of exception conditions on constructor flags"
         fn = 'test2.zarr'
         fullFilename = self.makeFilename(fn)
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
         # readOnly with non-existent file
         with self.assertRaises(RatZarrError):
@@ -556,13 +556,13 @@ class AllTests(unittest.TestCase):
         with self.assertRaises(RatZarrError):
             _ = RatZarr(fullFilename, create=False)
 
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
     def test_resize(self):
         "Reset rowCount"
         fn = 'test3.zarr'
         fullFilename = self.makeFilename(fn)
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
         rz = RatZarr(fullFilename)
         n = 100
@@ -584,13 +584,13 @@ class AllTests(unittest.TestCase):
         col = rz.readBlock(colName, 0, n)
         self.assertEqual(col.shape[0], n, 'Increased rowCount mis-match')
 
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
     def test_colnames(self):
         "Handling column names"
         fn = 'test4.zarr'
         fullFilename = self.makeFilename(fn)
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
         rz = RatZarr(fullFilename)
         n = 100
@@ -610,13 +610,13 @@ class AllTests(unittest.TestCase):
         rz.deleteColumn(col1)
         self.assertFalse(rz.colExists(col1), f"Column '{col1}' not deleted")
 
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
     def test_chunksize(self):
         "Chunk size manipulation"
         fn = 'test5.zarr'
         fullFilename = self.makeFilename(fn)
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
         rz = RatZarr(fullFilename)
         rz.setRowCount(1000000)
@@ -640,7 +640,7 @@ class AllTests(unittest.TestCase):
         self.assertEqual(ratChunk, newChunk,
                          'Chunk size not preserved on disk')
 
-        self.deleteTestFile(fn)
+        self.deleteTestFile(fullFilename)
 
     def makeFilename(self, filename):
         """
