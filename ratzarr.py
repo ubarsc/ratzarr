@@ -63,7 +63,6 @@ import numpy
 import zarr
 try:
     import boto3
-    import botocore.exceptions
 except ImportError:
     boto3 = None
 
@@ -661,23 +660,7 @@ class AllTests(unittest.TestCase):
         """
         Delete the given test file, if it exists
         """
-        if self.usingS3:
-            s3client = boto3.client('s3')
-            response = s3client.list_objects(Bucket=self.s3bucket,
-                                             Prefix=filename)
-            if 'Contents' in response:
-                objectKeyList = [o['Key'] for o in response['Contents']]
-                objSpec = {'Objects': [{'Key': k} for k in objectKeyList]}
-                s3client.delete_objects(Bucket=self.s3bucket,
-                                        Delete=objSpec)
-
-            # Wait until it is actually gone
-            while 'Contents' in response:
-                response = s3client.list_objects(Bucket=self.s3bucket,
-                                                 Prefix=filename)
-        else:
-            if os.path.exists(filename):
-                shutil.rmtree(filename)
+        RatZarr.delete(filename)
 
 
 def mainCmd():
