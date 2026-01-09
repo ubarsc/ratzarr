@@ -57,7 +57,6 @@ import sys
 import os
 import shutil
 import unittest
-import time
 from urllib.parse import urlparse
 
 import numpy
@@ -491,7 +490,6 @@ class RatZarr:
 
             # Wait until it is actually gone
             while 'Contents' in response:
-                time.sleep(1)
                 response = s3client.list_objects(Bucket=bucket,
                                                  Prefix=key)
         elif components.scheme == '':
@@ -547,7 +545,7 @@ class AllTests(unittest.TestCase):
 
     def test_flags(self):
         "Test a bunch of exception conditions on constructor flags"
-        fn = 'test1.zarr'
+        fn = 'test2.zarr'
         fullFilename = self.makeFilename(fn)
         self.deleteTestFile(fn)
 
@@ -562,7 +560,7 @@ class AllTests(unittest.TestCase):
 
     def test_resize(self):
         "Reset rowCount"
-        fn = 'test1.zarr'
+        fn = 'test3.zarr'
         fullFilename = self.makeFilename(fn)
         self.deleteTestFile(fn)
 
@@ -590,7 +588,7 @@ class AllTests(unittest.TestCase):
 
     def test_colnames(self):
         "Handling column names"
-        fn = 'test1.zarr'
+        fn = 'test4.zarr'
         fullFilename = self.makeFilename(fn)
         self.deleteTestFile(fn)
 
@@ -616,7 +614,7 @@ class AllTests(unittest.TestCase):
 
     def test_chunksize(self):
         "Chunk size manipulation"
-        fn = 'test1.zarr'
+        fn = 'test5.zarr'
         fullFilename = self.makeFilename(fn)
         self.deleteTestFile(fn)
 
