@@ -57,6 +57,7 @@ import sys
 import os
 import shutil
 import unittest
+import time
 from urllib.parse import urlparse
 
 import numpy
@@ -490,6 +491,7 @@ class RatZarr:
 
             # Wait until it is actually gone
             while 'Contents' in response:
+                time.sleep(1)
                 response = s3client.list_objects(Bucket=bucket,
                                                  Prefix=key)
         elif components.scheme == '':
