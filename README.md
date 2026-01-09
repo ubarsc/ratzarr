@@ -9,4 +9,4 @@ Install from source
 
     pip install .
 
-It requires the `zarr` package. Use with S3 also requires `s3fs`.
+It requires the `zarr` package. Use with S3 also requires `s3fs` & `boto3`.
