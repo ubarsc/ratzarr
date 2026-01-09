@@ -113,32 +113,17 @@ class RatZarr:
         self.grpName = "RAT"
 
         # First a sanity check if the store already exists.
-        existsWithoutRAT = False
-        notExists = False
-        #  Note that we have to test for slightly different exceptions
-        # between local and S3, because zarr has inconsistent behaviour.
-        notExistExc = FileNotFoundError
-        if self.usingS3:
-            notExistExc = zarr.errors.GroupNotFoundError
+        exists = RatZarr.exists(filename)
+        isValid = RatZarr.isValidRatZarr(filename)
 
-        try:
-            zarr.open(store=self.store, mode='r')
-        except notExistExc:
-            notExists = True
-        if not notExists:
-            try:
-                zarr.open(store=self.store, path=self.grpName, mode='r')
-            except zarr.errors.GroupNotFoundError:
-                existsWithoutRAT = True
-
-        if existsWithoutRAT:
-            msg = f"Zarr '{filename}' exists, but has no RAT group"
-            raise RatZarrError(msg)
-        if notExists and readOnly:
+        if not exists and readOnly:
             msg = f"readOnly is True, but file '{filename}' does not exist"
             raise RatZarrError(msg)
-        if notExists and not create:
+        if not exists and not create:
             msg = f"File '{filename}' does not exist, but create is False"
+            raise RatZarrError(msg)
+        if exists and not isValid:
+            msg = f"Zarr '{filename}' exists, but has no RAT group"
             raise RatZarrError(msg)
 
         mode = "a"
