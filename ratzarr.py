@@ -143,7 +143,7 @@ class RatZarr:
             self.rowCount = 0
 
         self.chunksize = self.grp.attrs.get(CHUNKSIZE_ATTR, DFLT_CHUNKSIZE)
-        if CHUNKSIZE_ATTR not in self.grp.attrs:
+        if CHUNKSIZE_ATTR not in self.grp.attrs and not readOnly:
             self.grp.attrs[CHUNKSIZE_ATTR] = self.chunksize
 
         # Flags to prevent repetitious warning messages
