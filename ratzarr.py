@@ -56,6 +56,8 @@ currently it is up to the user to enforce this.
 import sys
 import os
 import shutil
+import datetime
+import getpass
 import unittest
 from urllib.parse import urlparse
 
@@ -69,6 +71,7 @@ except ImportError:
 
 __version__ = "1.0.0"
 CHUNKSIZE_ATTR = 'CHUNKSIZE'
+MODIFICATION_ATTR = "MODIFICATIONLOG"
 DFLT_CHUNKSIZE = 500000
 
 
@@ -149,6 +152,8 @@ class RatZarr:
         # Flags to prevent repetitious warning messages
         self.blockChunkMultipleWarningDone = False
         self.smallBlockWarningDone = False
+        # Which columns have been written to
+        self.modifiedCols = set()
 
     def setRowCount(self, rowCount):
         """
@@ -223,9 +228,12 @@ class RatZarr:
 
         shape = (self.rowCount,)
         chunkshape = (self.chunksize,)
-        a = self.grp.create_array(name=colName, dtype=dtype, shape=shape,
-                                  chunks=chunkshape)
-        self.columnCache[colName] = a
+        arr = self.grp.create_array(name=colName, dtype=dtype, shape=shape,
+                                    chunks=chunkshape)
+        self.columnCache[colName] = arr
+
+        # Empty modification log
+        arr.attrs[MODIFICATION_ATTR] = []
 
     def deleteColumn(self, colName):
         """
@@ -314,6 +322,8 @@ class RatZarr:
 
         """
         self.openColumn(colName)
+        # The Zarr array object for this column
+        arr = self.columnCache[colName]
 
         blockLen = block.shape[0]
         # Check for chunk size warning conditions
@@ -338,7 +348,17 @@ class RatZarr:
 
         i1 = startRow
         i2 = startRow + blockLen
-        self.columnCache[colName][i1:i2] = block
+        arr[i1:i2] = block
+
+        # Possibly log a modification event
+        if colName not in self.modifiedCols:
+            self.modifiedCols.add(colName)
+            now = datetime.datetime.now(datetime.UTC)
+            nowStr = now.isoformat(timespec='seconds')
+            event = (nowStr, getpass.getuser(), sys.argv)
+            eventList = arr.attrs.get(MODIFICATION_ATTR, [])
+            eventList.append(event)
+            arr.attrs[MODIFICATION_ATTR] = eventList
 
     def setChunkSize(self, chunksize):
         """
@@ -494,6 +514,36 @@ class RatZarr:
                                                  Prefix=key)
         elif components.scheme == '':
             shutil.rmtree(zarrfile)
+
+    def getModificationLog(self, colName):
+        """
+        Read the modification log for the given column
+
+        The log is a list of tuples. Each tuple is (dt, user, argv), where
+        dt is a datetime.datetime of the modification event, user is
+        a string of the username running the command, and argv is the
+        command (list of str) being run to make the modification.
+
+        A modification event is when writeBlock() is called. For a given
+        instance of RatZarr, only the first writeBlock for each column
+        is recorded, so in general only one event per column is recorded
+        for a given program run.
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
+        Returns
+        -------
+          modLog : list of tuple
+            List of modification events for the column.
+        """
+        self.openColumn(colName)
+        arr = self.columnCache[colName]
+        eventLog = arr.attrs.get(MODIFICATION_ATTR)
+        eventLog = [tuple(t) for t in eventLog]
+        return eventLog
 
 
 class RatZarrError(Exception):
