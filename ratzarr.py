@@ -545,6 +545,35 @@ class RatZarr:
         eventLog = [tuple(t) for t in eventLog]
         return eventLog
 
+    def getColumnAttributeMapping(self, colName):
+        """
+        Return the column attributes mapping of the given column.
+
+        The returned object is a mapping (i.e. behaves roughly like a
+        dictionary). It is directly connected to the Zarr file, and as such,
+        any changes made are reflected immediately on disk. Some attributes
+        are already present, managed by RatZarr, but others can be added to
+        suit the user.
+
+        The keys should be hashable and JSON-serializable, and you probably
+        should stick to using strings only. The values can be anything
+        JSON-serializable, so should largely be limited to int, float, str,
+        list, dict.
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
+        Returns
+        -------
+          attrs : zarr.core.attributes.Attributes
+            The Zarr attributes mapping attached to the requested column
+        """
+        self.openColumn(colName)
+        arr = self.columnCache[colName]
+        return arr.attrs
+
 
 class RatZarrError(Exception):
     """
