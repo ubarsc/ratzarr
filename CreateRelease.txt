@@ -1,0 +1,21 @@
+How to create a release of ratzarr.
+You will need the build package installed ("conda install build" or
+"pip install build").
+
+1. Make sure that the doc HTML has been updated (see Docs.txt).
+   Make sure everything has been merged. 
+2. Merge a pull request to update the version number in ratzarr.py
+3. Create the distribution tar.gz using
+        python -m build
+   This creates a tar.gz file under a subdirectory called dist/
+        e.g. ratzarr-1.0.1.tar.gz
+4. Go to https://github.com/ubarsc/ratzarr/releases, and create
+   a new release by pressing "Draft a new release".
+   You should fill in the following:
+    Tag version: <version number> e.g. 1.0.1
+    Release Title: Version 1.0.1
+    Description: A brief description (a few lines at most) explaining
+                 the key points about this release
+    Upload files: Add the tar.gz file
+    Click "Publish release"
+
