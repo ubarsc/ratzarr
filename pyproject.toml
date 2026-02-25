@@ -3,7 +3,7 @@
 #
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,7 +14,7 @@ authors = [
 ]
 description = "Rough mimic of GDAL's RasterAttributeTable in a Zarr file"
 readme = "README.md"
-license = {text = "MIT License"}
+license = "MIT"
 
 [project.scripts]
 ratzarr_tests = "ratzarr:mainCmd"
