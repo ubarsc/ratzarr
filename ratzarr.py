@@ -77,7 +77,7 @@ except ImportError:
     boto3 = None
 
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 CHUNKSIZE_ATTR = 'CHUNKSIZE'
 MODIFICATION_ATTR = "MODIFICATIONLOG"
 DFLT_CHUNKSIZE = 500000
