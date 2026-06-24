@@ -52,6 +52,14 @@ size.
 It is intended that all columns have the same length (i.e. number of rows), but
 currently it is up to the user to enforce this.
 
+New in 1.0.2.
+For more sophisticated usage, columns can have a width greater than 1. This
+means they are 2-d arrays instead of 1-d. Everything else works pretty much
+the same. The idea is that a given named column might have multiple values
+for every row, and these are stored in the second dimension. It is intended
+that this be limited to widths of perhaps 10 or even 100, but may cause
+significant difficulties with much greater widths.
+
 """
 import sys
 import os
@@ -178,7 +186,11 @@ class RatZarr:
         # Force any existing columns to the new rowCount
         for colName in self.grp:
             self.openColumn(colName)
-            self.columnCache[colName].resize((rowCount,))
+            newShape = (rowCount,)
+            width = self.getColumnWidth(colName)
+            if width > 1:
+                newShape = (rowCount, width)
+            self.columnCache[colName].resize(newShape)
 
     def getRowCount(self):
         """
@@ -211,9 +223,13 @@ class RatZarr:
         """
         return list(self.grp.keys())
 
-    def createColumn(self, colName, dtype):
+    def createColumn(self, colName, dtype, width=1):
         """
         Create a new column. Uses the currently active rowCount
+
+        If width > 1, then a multi-column is created. This is effectively
+        a 2-d array, instead of the usual 1-d column, with the 2nd dimension
+        equal to width.
 
         Parameters
         ----------
@@ -221,13 +237,20 @@ class RatZarr:
             Name of column
           dtype : Any numpy dtype
             The data type of the column to create
+          width : int
+            If width > 1, the 'column' has shape (rowCount, width) instead
+            of the usual (rowCount,) (new in version 1.0.2)
 
         """
         if self.colExists(colName):
             raise RatZarrError(f"Column '{colName}' already exists")
 
-        shape = (self.rowCount,)
-        chunkshape = (self.chunksize,)
+        if width == 1:
+            shape = (self.rowCount,)
+            chunkshape = (self.chunksize,)
+        elif width > 1:
+            shape = (self.rowCount, width)
+            chunkshape = (self.chunksize, width)
         arr = self.grp.create_array(name=colName, dtype=dtype, shape=shape,
                                     chunks=chunkshape)
         self.columnCache[colName] = arr
@@ -295,7 +318,7 @@ class RatZarr:
         Returns
         -------
           block : ndarray
-            1-d numpy array of data for block
+            1-d numpy array of data for block (or 2-d if width > 1)
 
         """
         self.openColumn(colName)
@@ -316,7 +339,7 @@ class RatZarr:
           colName : str
             Name of column
           block : ndarray
-            1-d numpy array
+            1-d numpy array (or 2-d if width > 1)
           startRow : int
             Row of first element of block (starts at 0)
 
@@ -324,6 +347,15 @@ class RatZarr:
         self.openColumn(colName)
         # The Zarr array object for this column
         arr = self.columnCache[colName]
+
+        if len(arr.shape) != len(block.shape):
+            msg = f"Shape mis-match. Column {colName} has shape {arr.shape}, "
+            msg += f"block has shape {block.shape}"
+            raise RatZarrError(msg)
+        if len(block.shape) == 2 and arr.shape[1] != block.shape[1]:
+            msg = f"Shape mis-match. Column width is {arr.shape[1]}, but "
+            msg += f"block width is {block.shape[1]}"
+            raise RatZarrError(msg)
 
         blockLen = block.shape[0]
         # Check for chunk size warning conditions
@@ -410,6 +442,27 @@ class RatZarr:
         self.openColumn(colName)
         chunks = self.columnCache[colName].chunks
         return chunks[0]
+
+    def getColumnWidth(self, colName):
+        """
+        Get the width for the named column
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
+        Returns
+        -------
+          width : int
+            Width of named column
+        """
+        self.openColumn(colName)
+        colShape = self.columnCache[colName].shape
+        width = 1
+        if len(colShape) > 1:
+            width = colShape[1]
+        return width
 
     @staticmethod
     def exists(zarrfile):
@@ -718,6 +771,33 @@ class AllTests(unittest.TestCase):
         ratChunk = rz2.getRATChunkSize()
         self.assertEqual(ratChunk, newChunk,
                          'Chunk size not preserved on disk')
+
+        self.deleteTestFile(fullFilename)
+
+    def test_2d(self):
+        "Test column width > 1"
+        fn = 'test6.zarr'
+        fullFilename = self.makeFilename(fn)
+        self.deleteTestFile(fullFilename)
+
+        rz = RatZarr(fullFilename)
+        colName = 'colWidth3'
+        width = 3
+        dtype = numpy.uint16
+        n = 1000
+        rz.setRowCount(n)
+        rz.createColumn(colName, dtype, width=width)
+        col = numpy.zeros((n, width), dtype=dtype)
+        col[:, 0] = numpy.arange(n)
+        col[:, 1] = col[:, 0] + n
+        col[:, 2] = col[:, 0] + 5 * n
+        rz.writeBlock(colName, col, 0)
+
+        self.assertEqual(width, rz.getColumnWidth(colName),
+                         "Column width mis-match")
+        col2 = rz.readBlock(colName, 0, n)
+        numpy.testing.assert_array_equal(
+                col2, col, f'Column data mis-match (width={width})')
 
         self.deleteTestFile(fullFilename)
 
