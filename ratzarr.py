@@ -52,6 +52,14 @@ size.
 It is intended that all columns have the same length (i.e. number of rows), but
 currently it is up to the user to enforce this.
 
+New in 1.0.2.
+For more sophisticated usage, columns can have a width greater than 1. This
+means they are 2-d arrays instead of 1-d. Everything else works pretty much
+the same. The idea is that a given named column might have multiple values
+for every row, and these are stored in the second dimension. It is intended
+that this be limited to widths of perhaps 10 or even 100, but may cause
+significant difficulties with much greater widths.
+
 """
 import sys
 import os
@@ -231,7 +239,7 @@ class RatZarr:
             The data type of the column to create
           width : int
             If width > 1, the 'column' has shape (rowCount, width) instead
-            of the usual (rowCount,)
+            of the usual (rowCount,) (new in version 1.0.2)
 
         """
         if self.colExists(colName):
