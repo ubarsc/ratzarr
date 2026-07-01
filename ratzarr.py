@@ -167,9 +167,9 @@ class RatZarr:
         """
         Set the number of rows in the RAT.
 
-        Usually do this before creating any columns. The row count persists
-        between runs, so this only needs to be set when the RAT is first
-        created, or if it needs to be changed.
+        Usually you should only do this before creating any columns. The
+        row count persists between runs, so this only needs to be set when
+        the RAT is first created, or if it needs to be changed.
 
         If there are existing columns, they will be resized to the new
         rowCount. If this less than current, existing columns will be
@@ -181,16 +181,17 @@ class RatZarr:
             The desired number of rows in the RAT
 
         """
-        self.rowCount = rowCount
+        if rowCount != self.rowCount:
+            self.rowCount = rowCount
 
-        # Force any existing columns to the new rowCount
-        for colName in self.grp:
-            self.openColumn(colName)
-            newShape = (rowCount,)
-            width = self.getColumnWidth(colName)
-            if width > 1:
-                newShape = (rowCount, width)
-            self.columnCache[colName].resize(newShape)
+            # Force any existing columns to the new rowCount
+            for colName in self.grp:
+                self.openColumn(colName)
+                newShape = (rowCount,)
+                width = self.getColumnWidth(colName)
+                if width > 1:
+                    newShape = (rowCount, width)
+                self.columnCache[colName].resize(newShape)
 
     def getRowCount(self):
         """
