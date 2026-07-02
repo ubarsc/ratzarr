@@ -157,7 +157,8 @@ class RatZarr:
                 self.rowCount = self.columnCache[colName].shape[0]
             else:
                 self.rowCount = 0
-            self.grp.attrs[ROWCOUNT_ATTR] = self.rowCount
+            if not readOnly:
+                self.grp.attrs[ROWCOUNT_ATTR] = self.rowCount
         elif not exists:
             self.rowCount = 0
             self.grp.attrs[ROWCOUNT_ATTR] = self.rowCount
