@@ -80,6 +80,7 @@ except ImportError:
 __version__ = "1.0.2"
 CHUNKSIZE_ATTR = 'CHUNKSIZE'
 MODIFICATION_ATTR = "MODIFICATIONLOG"
+ROWCOUNT_ATTR = "ROWCOUNT"
 DFLT_CHUNKSIZE = 500000
 
 
@@ -144,14 +145,7 @@ class RatZarr:
                                    mode=mode)
         self.columnCache = {}
 
-        # If there are already columns present, find the rowCount
-        colNameList = list(self.grp.keys())
-        if len(colNameList) > 0:
-            colName = colNameList[0]
-            self.openColumn(colName)
-            self.rowCount = self.columnCache[colName].shape[0]
-        else:
-            self.rowCount = 0
+        self.rowCount = self.grp.attrs.get(ROWCOUNT_ATTR, 0)
 
         self.chunksize = self.grp.attrs.get(CHUNKSIZE_ATTR, DFLT_CHUNKSIZE)
         if CHUNKSIZE_ATTR not in self.grp.attrs and not readOnly:
@@ -183,6 +177,7 @@ class RatZarr:
         """
         if rowCount != self.rowCount:
             self.rowCount = rowCount
+            self.grp.attrs[ROWCOUNT_ATTR] = rowCount
 
             # Force any existing columns to the new rowCount
             for colName in self.grp:
