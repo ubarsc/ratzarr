@@ -657,6 +657,28 @@ class RatZarr:
         arr = self.columnCache[colName]
         return arr.attrs
 
+    def getRatAttributeMapping(self):
+        """
+        Return the attributes mapping of the whole RAT.
+
+        The returned object is a mapping (i.e. behaves roughly like a
+        dictionary). It is directly connected to the Zarr file, and as such,
+        any changes made are reflected immediately on disk. Some attributes
+        are already present, managed by RatZarr, but others can be added to
+        suit the user.
+
+        The keys should be hashable and JSON-serializable, and you probably
+        should stick to using strings only. The values can be anything
+        JSON-serializable, so should largely be limited to int, float, str,
+        list, dict.
+
+        Returns
+        -------
+          attrs : zarr.core.attributes.Attributes
+            The Zarr attributes mapping attached to the whole RAT
+        """
+        return self.grp.attrs
+
 
 class RatZarrError(Exception):
     """
