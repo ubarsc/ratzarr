@@ -476,6 +476,24 @@ class RatZarr:
             width = colShape[1]
         return width
 
+    def getColumnDtype(self, colName):
+        """
+        Get the dtype for the named column
+
+        Parameters
+        ----------
+          colName : str
+            Name of column
+
+        Returns
+        -------
+          dtype : numpy.dtype
+            Numpy dtype of the named column
+        """
+        self.openColumn(colName)
+        dt = self.columnCache[colName].dtype
+        return dt
+
     @staticmethod
     def exists(zarrfile):
         """
