@@ -5,6 +5,7 @@ You will need the build package installed ("conda install build" or
 1. Make sure that the doc HTML has been updated (see Docs.txt).
    Make sure everything has been merged. 
 2. Merge a pull request to update the version number in ratzarr.py
+   and ReleaseNotes.md
 3. Create the distribution tar.gz using
         python -m build
    This creates a tar.gz file under a subdirectory called dist/
